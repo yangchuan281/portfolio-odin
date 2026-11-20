@@ -1,0 +1,4 @@
+# 私钥与证书绝不入版本库。
+# 这两个固定文件名由 group_vars/web.yml 引用。
+*
+!.gitignore

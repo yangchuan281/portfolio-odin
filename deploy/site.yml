@@ -1,0 +1,14 @@
+---
+# 服务器初始化。可重复执行：已满足的状态不会产生变更。
+#
+#   ansible-playbook site.yml            # 全量
+#   ansible-playbook site.yml --tags edge # 只重刷入口层（换证书后用这个）
+
+- name: Provision the edge host for portfolio-odin
+  hosts: web
+  become: true
+  gather_facts: true
+  roles:
+    - base
+    - docker
+    - edge

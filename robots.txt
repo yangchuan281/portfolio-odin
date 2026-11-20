@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Written by ./set-domain.sh — do not hand-edit the host.
+Sitemap: https://lowtighter.icu/sitemap.xml

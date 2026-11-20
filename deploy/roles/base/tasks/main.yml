@@ -1,0 +1,43 @@
+---
+- name: Refresh apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - ufw
+      - rsync
+      - nginx
+      - unattended-upgrades
+    state: present
+    install_recommends: false
+
+- name: Set timezone to Asia/Shanghai
+  ansible.builtin.command: timedatectl set-timezone Asia/Shanghai
+  changed_when: false
+
+- name: Allow SSH through ufw
+  ansible.builtin.command: ufw allow OpenSSH
+  changed_when: false
+
+- name: Allow HTTP and HTTPS through ufw
+  ansible.builtin.command: ufw allow 80,443/tcp
+  changed_when: false
+
+- name: Enable ufw with default deny incoming
+  ansible.builtin.command: ufw --force enable
+  changed_when: false
+
+- name: Read ufw status
+  ansible.builtin.command: ufw status verbose
+  register: ufw_status
+  changed_when: false
+
+- name: Show firewall state
+  ansible.builtin.debug:
+    var: ufw_status.stdout_lines

@@ -1,0 +1,73 @@
+---
+- name: Ensure certificate directory exists
+  ansible.builtin.file:
+    path: /etc/nginx/certs
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install TLS certificate chain
+  ansible.builtin.copy:
+    src: "{{ cert_src_dir }}/{{ cert_chain_file }}"
+    dest: /etc/nginx/certs/fullchain.pem
+    owner: root
+    group: root
+    mode: "0600"
+  notify: reload nginx
+
+- name: Install TLS private key
+  ansible.builtin.copy:
+    src: "{{ cert_src_dir }}/{{ cert_key_file }}"
+    dest: /etc/nginx/certs/privkey.pem
+    owner: root
+    group: root
+    mode: "0600"
+  notify: reload nginx
+
+- name: Render site configuration
+  ansible.builtin.template:
+    src: site.conf.j2
+    dest: "/etc/nginx/sites-available/{{ domain }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload nginx
+
+- name: Enable site
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ domain }}.conf"
+    dest: "/etc/nginx/sites-enabled/{{ domain }}.conf"
+    state: link
+  notify: reload nginx
+
+- name: Remove default site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Validate nginx configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Reconcile nginx service state
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Apply pending handler immediately
+  ansible.builtin.meta: flush_handlers
+
+- name: Check upstream reachability
+  ansible.builtin.command: curl -sI -o /dev/null -w '%{http_code}' http://{{ upstream_addr }}/
+  register: upstream_code
+  changed_when: false
+  failed_when: false
+
+- name: Report upstream status
+  ansible.builtin.debug:
+    msg: >-
+      upstream {{ upstream_addr }} -> HTTP {{ upstream_code.stdout }}
+      {{ '(容器未启动，属预期)' if upstream_code.stdout == '000' else '' }}

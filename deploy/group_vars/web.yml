@@ -1,0 +1,22 @@
+---
+# 站点与入口层的可调参数。改域名、换证书、调 HSTS 都只动这里。
+
+domain: lowtighter.icu
+www_alias: www.lowtighter.icu
+
+# 上游容器：只监听回环，不暴露公网
+upstream_addr: 127.0.0.1:8080
+
+# HSTS 秒数。首次上线建议 86400，整站确认全 HTTPS 后再改 31536000。
+# 注意：对已访问过的浏览器，一年期 HSTS 不可提前撤销。
+hsts_max_age: 31536000
+
+# 证书源目录。默认取 deploy/certs/，与 playbook 位置无关，Windows 与 WSL 都能用。
+# 该目录下的私钥不入 git（见 deploy/certs/.gitignore）。
+# 换证书：把新文件覆盖到 deploy/certs/ 的两个固定文件名，再跑一次 playbook。
+cert_src_dir: "{{ playbook_dir }}/certs"
+cert_chain_file: fullchain.pem
+cert_key_file: privkey.pem
+
+# 站点源码目录（compose 文件与静态文件在此）
+site_dir: /opt/odin-portfolio

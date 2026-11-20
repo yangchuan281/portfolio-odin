@@ -1,0 +1,21 @@
+# ─────────────────────────────────────────────────────────────
+# docker compose up -d --build
+# Host port 80 -> container port 80.
+# Change the left side to 8080:80 if something else owns :80.
+# ─────────────────────────────────────────────────────────────
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: odin-portfolio:latest
+    container_name: odin-portfolio
+    restart: unless-stopped
+    ports:
+      # 8080 只监听回环：公网由宿主机 Nginx 终止 TLS 后反代进来
+      - "127.0.0.1:8080:80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n-doc="p1.title">ops-pilot — operations control plane · Dwarf Tiger</title>
+<meta name="description" data-i18n-doc="p1.desc" content="Case study: OpsPilot, a FastAPI operations control plane with 21 tables, 7 checkers, a release state machine and four injected failure drills. 248 of 250 tests pass; a bad image rolls back in 15.8s.">
+<meta name="author" content="Dwarf Tiger">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#06070a">
+
+<link rel="canonical" href="https://lowtighter.icu/projects/ops-pilot.html">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://lowtighter.icu/projects/ops-pilot.html">
+<meta property="og:title" data-i18n-doc="p1.title" content="ops-pilot — operations control plane · Dwarf Tiger">
+<meta property="og:description" data-i18n-doc="p1.desc" content="Case study: a FastAPI operations control plane with 21 tables, 7 checkers, a release state machine and four injected failure drills.">
+<meta property="og:image" content="https://lowtighter.icu/assets/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://lowtighter.icu/assets/img/og.png">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2306070a'/%3E%3Ctext x='32' y='44' font-family='monospace' font-size='30' font-weight='700' fill='%2335e0a1' text-anchor='middle'%3EOD%3C/text%3E%3C/svg%3E">
+<link rel="preload" href="../assets/fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/css/style.css">
+
+<script>
+(function () {
+  var t = null, l = null;
+  try { t = localStorage.getItem('odin-theme'); l = localStorage.getItem('odin-lang'); } catch (e) {}
+  document.documentElement.setAttribute('data-theme', (t === 'light' || t === 'dark') ? t : 'dark');
+  document.documentElement.setAttribute('lang', l === 'zh' ? 'zh' : 'en');
+})();
+</script>
+<script>
+document.documentElement.classList.add('js');
+setTimeout(function () {
+  if (!window.__odinReady) document.documentElement.classList.remove('js');
+}, 1500);
+</script>
+</head>
+<body id="top">
+
+<a class="skip" href="#main" data-i18n="a11y.skip">Skip to content</a>
+
+<div class="backdrop" aria-hidden="true">
+  <div class="backdrop__grid"></div>
+  <div class="backdrop__glow"></div>
+  <div class="backdrop__grain"></div>
+</div>
+<div class="spotlight" id="spotlight" aria-hidden="true"></div>
+
+<!-- ══════════════════ NAV ══════════════════ -->
+<header class="nav" id="nav">
+  <div class="nav__in">
+    <a class="brand" href="../index.html" aria-label="Dwarf Tiger — home">
+      <span class="brand__mark">虎</span>
+      <span class="brand__txt" data-i18n="brand.name">Dwarf Tiger</span>
+    </a>
+
+    <nav class="nav__links" id="navLinks" aria-label="Sections">
+      <a href="../index.html#about"   data-i18n="nav.about">about</a>
+      <a href="../projects.html" class="is-active" data-i18n="nav.work">work</a>
+      <a href="../index.html#stack"   data-i18n="nav.stack">stack</a>
+      <a href="../index.html#contact" data-i18n="nav.contact">contact</a>
+    </nav>
+
+    <div class="nav__right">
+      <span class="clock" id="clock" title="Local time"><span class="clock__dot"></span><span id="clockTxt">00:00:00</span></span>
+
+      <button class="langbtn" id="langBtn" type="button" aria-label="Switch language / 切换语言">
+        <span data-lang="en" class="is-on">EN</span><span class="langbtn__slash">/</span><span data-lang="zh">中</span>
+      </button>
+
+      <button class="iconbtn" id="themeBtn" type="button" aria-label="Toggle theme" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+      </button>
+
+      <a class="btn btn--sm" href="../index.html#contact" data-i18n="nav.talk">let's talk</a>
+
+      <button class="iconbtn nav__burger" id="burger" type="button" aria-label="Menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<div class="wrap">
+
+  <!-- ══════════════════ BREADCRUMB ══════════════════ -->
+  <nav class="crumbs reveal" aria-label="Breadcrumb">
+    <a href="../index.html">~</a>
+    <span class="crumbs__sep" aria-hidden="true">/</span>
+    <a href="../projects.html">work</a>
+    <span class="crumbs__sep" aria-hidden="true">/</span>
+    <span class="crumbs__here">ops-pilot</span>
+  </nav>
+
+  <!-- ══════════════════ HEAD ══════════════════ -->
+  <header class="phead">
+    <p class="phead__no reveal">
+      <b>01</b>
+      <span>release/ops-pilot</span>
+      <span class="entry__date">2026.06 → 2026.11</span>
+      <span class="pill pill--live" data-i18n="c1.pill">shipped</span>
+    </p>
+
+    <h1 class="phead__title reveal" style="--d:.05s" data-i18n="c1.title">OpsPilot — an operations control plane</h1>
+
+    <p class="phead__lede reveal" style="--d:.1s" data-i18n="c1.lede">
+      Assets → checks → alerts → runbooks → release → audit, in one loop you can replay
+      from a clean database. FastAPI, Celery, PostgreSQL, 21 tables, 7 checkers.
+    </p>
+
+    <dl class="phead__meta reveal" style="--d:.14s">
+      <div><dt data-i18n="label.role">role</dt> <dd><b data-i18n="p1.role">solo — design, build, drills</b></dd></div>
+      <div><dt data-i18n="label.scale">scale</dt> <dd><b>12.8k <span data-i18n="p1.loc">lines · 65 modules</span></b></dd></div>
+      <div><dt data-i18n="label.repo">repo</dt> <dd><b data-i18n="p1.repo">private</b></dd></div>
+    </dl>
+
+    <ul class="chips reveal" style="--d:.18s"><li>python 3.12</li><li>fastapi</li><li>sqlalchemy 2</li><li>celery</li><li>postgres 16</li><li>redis</li><li>docker compose</li><li>prometheus</li></ul>
+  </header>
+
+  <!-- ══════════════════ KPI ══════════════════ -->
+  <dl class="kpis reveal" style="--d:.22s">
+    <div><dd>21</dd><dt data-i18n="p1.k1">tables<br>one schema, alembic-migrated</dt></div>
+    <div><dd>67</dd><dt data-i18n="p1.k2">REST endpoints<br>assets → audit</dt></div>
+    <div><dd>248</dd><dt data-i18n="p1.k3">tests passing<br>2 skipped, 0 failed</dt></div>
+    <div><dd>15.8s</dd><dt data-i18n="p1.k4">bad image shipped<br>to rolled back</dt></div>
+  </dl>
+
+  <!-- ══════════════════ 01 CONTEXT ══════════════════ -->
+  <section class="psec">
+    <p class="psec__h reveal"><b>01</b> <span>context</span></p>
+    <h2 class="reveal" style="--d:.05s" data-i18n="p1.h.context">A deploy at night, and no way back.</h2>
+
+    <div class="prose reveal" style="--d:.1s">
+      <p data-i18n="c1.problem">
+        A bad deploy meant SSHing in at night and hoping the previous image tag was
+        remembered correctly. Alerts arrived with no asset context, no owner, and
+        the recovery steps lived in someone's head.
+      </p>
+      <p data-i18n="p1.context.p2">
+        The brief I set myself was narrow on purpose: keep Prometheus, keep Kubernetes,
+        and add only what was missing around them — an approval chain that cannot be skipped,
+        an audit row for every state change, and a rollback that does not need a human awake.
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 02 DESIGN ══════════════════ -->
+  <section class="psec">
+    <p class="psec__h reveal"><b>02</b> <span>design</span></p>
+    <h2 class="reveal" style="--d:.05s" data-i18n="p1.h.design">Wrap the tools, don't replace them.</h2>
+
+    <div class="prose reveal" style="--d:.1s">
+      <p data-i18n="c1.tradeoff">
+        Don't rebuild Prometheus or Kubernetes. Wrap them: ingest Alertmanager webhooks,
+        add the approval chain, the audit trail and the rollback that were missing.
+        A fake K8s driver keeps the whole flow runnable offline.
+      </p>
+    </div>
+
+    <figure class="diagram reveal" style="--d:.14s">
+      <svg viewBox="0 0 640 258" role="img" aria-labelledby="dg1" preserveAspectRatio="xMidYMid meet">
+        <title id="dg1">OpsPilot request path: assets and credentials, seven checkers on a cron schedule, alert ingestion with fingerprint dedup, notification with cooldown and retry, runbooks with dry-run and approval, release state machine with health gate and automatic rollback, all writing audit records.</title>
+        <defs>
+          <marker id="ar1" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 z" fill="currentColor" opacity=".55"/>
+          </marker>
+        </defs>
+        <g font-family="ui-monospace, monospace" font-size="10" fill="currentColor">
+          <g opacity=".9">
+            <rect x="4" y="18" width="118" height="44" rx="7" class="dg-box"/>
+            <text x="16" y="36" class="dg-t">assets · creds</text>
+            <text x="16" y="50" class="dg-s" opacity=".62">9 types · AES-GCM</text>
+
+            <rect x="150" y="18" width="118" height="44" rx="7" class="dg-box"/>
+            <text x="162" y="36" class="dg-t">7 checkers</text>
+            <text x="162" y="50" class="dg-s" opacity=".62">cron + redis lock</text>
+
+            <rect x="296" y="18" width="118" height="44" rx="7" class="dg-box"/>
+            <text x="308" y="36" class="dg-t">alerts</text>
+            <text x="308" y="50" class="dg-s" opacity=".62">sha256 fingerprint</text>
+
+            <rect x="442" y="18" width="118" height="44" rx="7" class="dg-box"/>
+            <text x="454" y="36" class="dg-t">notify</text>
+            <text x="454" y="50" class="dg-s" opacity=".62">cooldown · 3 retries</text>
+          </g>
+          <g opacity=".9">
+            <rect x="4" y="106" width="118" height="44" rx="7" class="dg-box"/>
+            <text x="16" y="124" class="dg-t">runbooks</text>
+            <text x="16" y="138" class="dg-s" opacity=".62">11 actions</text>
+
+            <rect x="150" y="106" width="118" height="44" rx="7" class="dg-box"/>
+            <text x="162" y="124" class="dg-t">dry-run</text>
+            <text x="162" y="138" class="dg-s" opacity=".62">token + approval</text>
+
+            <rect x="296" y="106" width="118" height="44" rx="7" class="dg-box"/>
+            <text x="308" y="124" class="dg-t">release</text>
+            <text x="308" y="138" class="dg-s" opacity=".62">7 preflights</text>
+
+            <rect x="442" y="106" width="118" height="44" rx="7" class="dg-box dg-box--key"/>
+            <text x="454" y="124" class="dg-t">health gate</text>
+            <text x="454" y="138" class="dg-s" opacity=".72">→ rollback</text>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1" opacity=".45" fill="none" marker-end="url(#ar1)">
+            <path d="M122 40 H148"/>
+            <path d="M268 40 H294"/>
+            <path d="M414 40 H440"/>
+            <path d="M210 62 V104"/>
+            <path d="M122 128 H148"/>
+            <path d="M268 128 H294"/>
+            <path d="M414 128 H440"/>
+            <path d="M560 128 H580 V40 H562"/>
+          </g>
+
+          <rect x="4" y="192" width="556" height="34" rx="7" class="dg-box dg-box--dim"/>
+          <text x="16" y="213" class="dg-s" opacity=".8">postgres 21 tables · redis queue · /metrics · audit_logs 全量留痕</text>
+
+          <path d="M281 150 V190" stroke="currentColor" stroke-width="1" opacity=".35" fill="none" marker-end="url(#ar1)"/>
+        </g>
+      </svg>
+      <figcaption data-i18n="c1.cap">
+        Cron schedules a check, a lock prevents a double run, the result either writes a
+        row or raises a fingerprinted alert; a release that fails its gate rolls itself back
+        and keeps the evidence JSON.
+      </figcaption>
+    </figure>
+
+    <!-- specs -->
+    <div class="spec reveal" style="--d:.18s">
+      <div><dt>runtime</dt><dd>Python 3.12 · FastAPI ≥0.115 · Uvicorn · Jinja templates for the console</dd></div>
+      <div><dt>data</dt><dd>PostgreSQL 16 · SQLAlchemy 2 · Alembic migrations · <b>21 tables</b></dd></div>
+      <div><dt>async</dt><dd>Celery 5.4 on a Redis queue · cron scheduler with a Redis lock so one check runs once</dd></div>
+      <div><dt>checkers</dt><dd>linux · network · postgres · redis · rabbitmq · k8s · exec — 7 drivers behind one registry</dd></div>
+      <div><dt>runbooks</dt><dd>11 actions, split read / change · dry-run preview · approval token before a change runs</dd></div>
+      <div><dt>release</dt><dd>7 preflights · health gate · automatic rollback · evidence JSON per attempt</dd></div>
+      <div><dt>k8s driver</dt><dd>get_deployment · set_image · rollout_status · list_pods · list_events · rollback · pvc_usage</dd></div>
+      <div><dt>secrets</dt><dd>AES-GCM at rest · argon2 for passwords · credentials never rendered back to the browser</dd></div>
+      <div><dt>observability</dt><dd>/metrics · structlog · Prometheus, Alertmanager and Grafana configs shipped in deploy/</dd></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 03 FAILURE ══════════════════ -->
+  <section class="psec">
+    <p class="psec__h reveal"><b>03</b> <span>what broke</span></p>
+    <h2 class="reveal" style="--d:.05s" data-i18n="p1.h.fail">I shipped a broken image on purpose.</h2>
+
+    <div class="prose reveal" style="--d:.1s">
+      <p data-i18n="c1.fail">
+        Drill DR-01 shipped a deliberately broken image: the health gate caught
+        unready replicas and a restart limit, then rolled back in 15.8s. The drills
+        also exposed three real defects — a rollback that could loop onto another bad
+        image, a dangerous action that could never be confirmed, and a dry-run
+        reported as failed.
+      </p>
+      <p data-i18n="p1.fail.p2">
+        All three were fixed rather than written around. The rollback now records the image it
+        came from before switching, the approval token is checked before the action executes
+        instead of after, and dry-run results are stored with their own status so they can no
+        longer be mistaken for a failure.
+      </p>
+    </div>
+
+    <table class="drills reveal" style="--d:.14s;margin-top:1.5rem">
+      <caption data-i18n="c1.drills.cap">Failure drills — numbers from var/drill-report.json</caption>
+      <thead>
+        <tr>
+          <th scope="col">drill</th>
+          <th scope="col" data-i18n="label.injected">injected</th>
+          <th scope="col" data-i18n="label.measured">measured</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>DR-01</td><td data-i18n="c1.d1.a">broken image on purpose</td><td>15.8s → rolled back</td></tr>
+        <tr><td>DR-02</td><td data-i18n="c1.d2.a">disk pressure, log cleanup</td><td>7ms preview · 0 wrong deletes</td></tr>
+        <tr><td>DR-03</td><td data-i18n="c1.d3.a">backup + restore</td><td>sha256 match 4/4</td></tr>
+        <tr><td>DR-04</td><td data-i18n="c1.d4.a">alert storm, 5 identical</td><td>5 → 1 · 12–39ms</td></tr>
+      </tbody>
+    </table>
+
+    <div class="bounds reveal" style="--d:.18s">
+      <h4 data-i18n="p1.bounds.h">Scope boundaries — what this is not</h4>
+      <ul>
+        <li data-i18n="p1.bounds.1">Single-node Docker Compose, not a highly available cluster. It is a control plane for a lab, sized like one.</li>
+        <li data-i18n="p1.bounds.2">A check that overruns its own interval is skipped, not queued — the lock does not build a backlog.</li>
+        <li data-i18n="p1.bounds.3">The Kubernetes driver covers Deployment image updates, rollout status, pods, events and rollback. It does not apply arbitrary manifests.</li>
+        <li data-i18n="p1.bounds.4">Alert ingestion expects the Alertmanager webhook shape; a different sender needs a small adapter.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 04 EVIDENCE ══════════════════ -->
+  <section class="psec">
+    <p class="psec__h reveal"><b>04</b> <span>evidence</span></p>
+    <h2 class="reveal" style="--d:.05s" data-i18n="p1.h.evidence">Screens of the thing running.</h2>
+    <p class="sec__sub reveal" style="--d:.1s" data-i18n="p1.evidence.sub">
+      Three pages from the console, against a seeded PostgreSQL — the same run the drill report
+      was captured from. Click any one to see it full size.
+    </p>
+
+    <div class="evid__shots reveal" style="--d:.14s;margin-top:1.6rem">
+      <button class="shot" type="button" data-full="../assets/img/evidence/ops-release.webp" data-cap="release detail · rolled_back">
+        <img src="../assets/img/evidence/ops-release-thumb.webp" width="640" height="400" alt="OpsPilot release detail page showing state 已回滚, seven passing preflights and a twelve-step timeline" loading="lazy" decoding="async">
+        <span class="shot__cap" data-i18n="c1.shot1">release detail · rolled back</span>
+      </button>
+      <button class="shot" type="button" data-full="../assets/img/evidence/ops-dashboard.webp" data-cap="dashboard · live db">
+        <img src="../assets/img/evidence/ops-dashboard-thumb.webp" width="640" height="400" alt="OpsPilot dashboard with 13 assets, 5 unresolved alerts, recent check runs and the last release marked rolled back" loading="lazy" decoding="async">
+        <span class="shot__cap" data-i18n="c1.shot2">dashboard · live db</span>
+      </button>
+      <button class="shot" type="button" data-full="../assets/img/evidence/ops-checks.webp" data-cap="checks · 7 drivers">
+        <img src="../assets/img/evidence/ops-checks-thumb.webp" width="640" height="400" alt="OpsPilot checks page listing scheduled check items with their last run status and duration" loading="lazy" decoding="async">
+        <span class="shot__cap" data-i18n="c1.shot3">checks · 7 drivers</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 05 REPRODUCE ══════════════════ -->
+  <section class="psec">
+    <p class="psec__h reveal"><b>05</b> <span>reproduce</span></p>
+    <h2 class="reveal" style="--d:.05s" data-i18n="p1.h.repro">Every number above has a command.</h2>
+
+    <div class="psplit" style="margin-top:1.5rem">
+      <div class="prose reveal" style="--d:.1s">
+        <p data-i18n="p1.repro.p">
+          The repository is private while I clean up the commit history, but the drill report,
+          the test run and the console are all one machine away. Ask for access and I will send
+          a read-only invite — the three commands below are what produce the figures on this page.
+        </p>
+        <p>
+          <code>pytest -q</code> → 250 collected, 248 passed, 2 skipped<br>
+          <code>python scripts/e2e_smoke.py</code> → 55 checks against a live service<br>
+          <code>python scripts/drill_capture.py</code> → rewrites var/drill-report.json
+        </p>
+        <p>
+          <a class="case__repo" style="margin-left:0" href="mailto:18295659278@163.com?subject=OpsPilot%20repo%20access" data-i18n="c1.repo">repo is private — ask for access</a>
+        </p>
+      </div>
+
+      <pre class="tree reveal" style="--d:.14s"><code><b>app/</b>
+├── api/          <i>13 routers · 67 endpoints</i>
+├── checkers/     <i>linux network postgres redis rabbitmq k8s exec</i>
+├── services/     <i>alerting assets audit backup checks cleanup</i>
+│                 <i>credentials k8s notify releases reports runbooks</i>
+├── runbooks/     <i>read + change actions, one registry</i>
+├── models/       <i>21 tables, alembic-migrated</i>
+├── schemas/      <i>pydantic v2</i>
+├── web/          <i>jinja console</i>
+├── workers/      <i>celery tasks</i>
+├── cron.py       <i>scheduler + redis lock</i>
+└── main.py
+<b>deploy/</b>
+├── compose.yaml  <i>api · worker · postgres · redis</i>
+├── prometheus/   <i>scrape config</i>
+├── alertmanager/ <i>webhook route</i>
+└── grafana/      <i>dashboards</i></code></pre>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PREV / NEXT ══════════════════ -->
+  <nav class="pnav reveal" aria-label="Project navigation">
+    <a href="../projects.html">
+      <span class="pnav__k">← <span data-i18n="pnav.all">all projects</span></span>
+      <span class="pnav__t">work</span>
+    </a>
+    <a href="itsm.html">
+      <span class="pnav__k" data-i18n="pnav.next">next →</span>
+      <span class="pnav__t">itsm-platform</span>
+    </a>
+  </nav>
+
+</div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__in">
+    <div class="foot__brand">
+      <span class="brand__mark">虎</span>
+      <span data-i18n="brand.name">Dwarf Tiger</span>
+    </div>
+    <p class="foot__meta">© <span id="year">2026</span> · <span data-i18n="foot.meta">built by hand · served from my own VPS</span></p>
+    <nav class="foot__links" aria-label="Elsewhere">
+      <a href="https://github.com/yangchuan281" target="_blank" rel="noopener">github</a>
+      <a href="mailto:18295659278@163.com" data-i18n="foot.email">email</a>
+      <a href="#top" data-i18n="foot.top">back to top ↑</a>
+    </nav>
+  </div>
+</footer>
+
+<!-- screenshot lightbox -->
+<div class="lb" id="lb" hidden>
+  <button class="lb__close" id="lbClose" type="button" aria-label="Close">✕</button>
+  <figure class="lb__fig">
+    <img id="lbImg" alt="">
+    <figcaption id="lbCap"></figcaption>
+  </figure>
+</div>
+
+<script src="../assets/js/i18n.js" defer></script>
+<script src="../assets/js/main.js" defer></script>
+</body>
+</html>

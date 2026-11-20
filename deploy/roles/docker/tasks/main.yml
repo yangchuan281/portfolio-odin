@@ -1,0 +1,85 @@
+---
+# 用腾讯云内网镜像装 docker-ce。
+# 官方 get.docker.com 在大陆机器上会被 reset，这里不走那条路。
+
+- name: Create apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install Docker GPG key from Tencent mirror
+  ansible.builtin.get_url:
+    url: https://mirrors.cloud.tencent.com/docker-ce/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Read dpkg architecture
+  ansible.builtin.command: dpkg --print-architecture
+  register: dpkg_arch
+  changed_when: false
+
+- name: Read distribution codename
+  ansible.builtin.command: bash -c '. /etc/os-release && echo $VERSION_CODENAME'
+  register: os_codename
+  changed_when: false
+
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ dpkg_arch.stdout }} signed-by=/etc/apt/keyrings/docker.asc]
+      https://mirrors.cloud.tencent.com/docker-ce/linux/ubuntu
+      {{ os_codename.stdout }} stable
+    filename: docker
+    state: present
+
+- name: Install Docker Engine and compose plugin
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Configure daemon with registry mirror and log rotation
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {
+        "registry-mirrors": ["https://mirror.ccs.tencentyun.com"],
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" }
+      }
+  notify: restart docker
+
+- name: Add deploy user to docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+
+- name: Enable and start docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Verify docker daemon responds
+  ansible.builtin.command: docker version
+  register: docker_version
+  changed_when: false
+  failed_when: docker_version.rc != 0
+
+- name: Show docker server version
+  ansible.builtin.debug:
+    msg: "{{ docker_version.stdout_lines | select('search', 'Server') | list }}"

@@ -1,0 +1,15 @@
+# 旧版本快照，不参与版本管理
+.archive/
+
+# 操作系统与编辑器
+.DS_Store
+Thumbs.db
+*.swp
+
+# 日志与临时文件
+*.log
+.tmp-*
+
+# 依赖与构建缓存
+node_modules/
+__pycache__/
